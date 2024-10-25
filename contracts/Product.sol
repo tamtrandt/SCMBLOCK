@@ -9,11 +9,12 @@ contract ProductRegistry {
         uint256 price; // Giá sản phẩm
         uint256 quantity; // Số lượng sản phẩm
         string status; // Trạng thái sản phẩm
-        string ipfsUrl; // Đường dẫn IPFS
+        string[] cids; // Đường dẫn IPFS
         address creator; // Địa chỉ ví của người tạo
     }
 
     mapping(string => Product) private products; // Mapping lưu trữ sản phẩm theo ID
+    string[] private productIds; //Mảng lưu trữ ID của tất cả các sản phẩm
 
     event ProductAdded(
         string indexed id,
@@ -32,7 +33,7 @@ contract ProductRegistry {
         uint256 _price,
         uint256 _quantity,
         string memory _status,
-        string memory _ipfsUrl
+        string[] memory _cids
     ) public {
         require(
             bytes(products[_id].id).length == 0,
@@ -47,9 +48,12 @@ contract ProductRegistry {
             _price,
             _quantity,
             _status,
-            _ipfsUrl,
+            _cids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
+
+        // Lưu ID vào mảng productIds
+        productIds.push(_id);
 
         // Phát sự kiện khi thêm sản phẩm
         emit ProductAdded(_id, _name, _price, blockhash(block.number));
@@ -63,7 +67,7 @@ contract ProductRegistry {
         uint256 _price,
         uint256 _quantity,
         string memory _status,
-        string memory _ipfsUrl
+        string[] memory _cids
     ) public {
         require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại hay không
 
@@ -75,7 +79,7 @@ contract ProductRegistry {
             _price,
             _quantity,
             _status,
-            _ipfsUrl,
+            _cids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
 
@@ -95,20 +99,24 @@ contract ProductRegistry {
             uint256 price,
             uint256 quantity,
             string memory status,
-            string memory ipfsUrl
+            string[] memory cids
         )
     {
         require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại
 
         // Lấy sản phẩm từ mapping
         Product storage p = products[_id];
-        return (
-            p.name,
-            p.description,
-            p.price,
-            p.quantity,
-            p.status,
-            p.ipfsUrl
-        );
+        return (p.name, p.description, p.price, p.quantity, p.status, p.cids);
+    }
+
+    // Lấy tất cả sản phẩm
+    function getAllProducts() public view returns (Product[] memory) {
+        Product[] memory allProducts = new Product[](productIds.length);
+
+        for (uint256 i = 0; i < productIds.length; i++) {
+            allProducts[i] = products[productIds[i]];
+        }
+
+        return allProducts;
     }
 }
