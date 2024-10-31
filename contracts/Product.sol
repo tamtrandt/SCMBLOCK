@@ -12,6 +12,7 @@ contract ProductRegistry {
         string category; // Danh mục sản phẩm
         string size; // Kích thước sản phẩm
         string status; // Trạng thái sản phẩm
+        string store;
         string[] cids; // Đường dẫn IPFS
         address creator; // Địa chỉ ví của người tạo
     }
@@ -39,6 +40,7 @@ contract ProductRegistry {
         string memory _category, // Thêm category vào tham số
         string memory _size, // Thêm size vào tham số
         string memory _status,
+        string memory _store,
         string[] memory _cids
     ) public {
         require(
@@ -57,6 +59,7 @@ contract ProductRegistry {
             _category, // Lưu category
             _size, // Lưu size
             _status,
+            _store, // Đặt mặc định cho store là "onchain"
             _cids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
@@ -79,6 +82,7 @@ contract ProductRegistry {
         string memory _category, // Thêm category vào tham số
         string memory _size, // Thêm size vào tham số
         string memory _status,
+        string memory _store,
         string[] memory _cids
     ) public {
         require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại hay không
@@ -94,6 +98,7 @@ contract ProductRegistry {
             _category, // Cập nhật category
             _size, // Cập nhật size
             _status,
+            _store, // Giữ nguyên store không thay đổi
             _cids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
@@ -117,6 +122,7 @@ contract ProductRegistry {
             string memory category, // Thêm category vào trả về
             string memory size, // Thêm size vào trả về
             string memory status,
+            string memory store, // Thêm store vào trả về
             string[] memory cids,
             address creator
         )
@@ -134,6 +140,7 @@ contract ProductRegistry {
             p.category,
             p.size,
             p.status,
+            p.store,
             p.cids,
             p.creator
         );
@@ -146,7 +153,6 @@ contract ProductRegistry {
         for (uint256 i = 0; i < productIds.length; i++) {
             allProducts[i] = products[productIds[i]];
         }
-
         return allProducts;
     }
 }
