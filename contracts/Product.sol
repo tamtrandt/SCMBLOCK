@@ -12,22 +12,17 @@ contract ProductRegistry {
         string category; // Danh mục sản phẩm
         string size; // Kích thước sản phẩm
         string status; // Trạng thái sản phẩm
-        string store;
-        string[] cids; // Đường dẫn IPFS
+        string[] imagecids; // Đường dẫn IPFS
+        string[] filecids;
         address creator; // Địa chỉ ví của người tạo
     }
 
     mapping(string => Product) private products; // Mapping lưu trữ sản phẩm theo ID
     string[] private productIds; // Mảng lưu trữ ID của tất cả các sản phẩm
 
-    event ProductAdded(
-        string indexed id,
-        string name,
-        string price,
-        bytes32 blockHash
-    ); // Sự kiện khi thêm sản phẩm
+    event ProductAdded(string indexed id, bytes32 blockHash); // Sự kiện khi thêm sản phẩm
 
-    event ProductUpdated(string indexed id, string name, string price); // Sự kiện khi cập nhật sản phẩm
+    event ProductUpdated(string indexed id, bytes32 blockHash); // Sự kiện khi cập nhật sản phẩm
 
     // Thêm sản phẩm mới với ID từ backend
     function addProduct(
@@ -40,8 +35,8 @@ contract ProductRegistry {
         string memory _category, // Thêm category vào tham số
         string memory _size, // Thêm size vào tham số
         string memory _status,
-        string memory _store,
-        string[] memory _cids
+        string[] memory _imagecids,
+        string[] memory _filecids
     ) public {
         require(
             bytes(products[_id].id).length == 0,
@@ -59,8 +54,8 @@ contract ProductRegistry {
             _category, // Lưu category
             _size, // Lưu size
             _status,
-            _store, // Đặt mặc định cho store là "onchain"
-            _cids,
+            _imagecids,
+            _filecids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
 
@@ -68,7 +63,7 @@ contract ProductRegistry {
         productIds.push(_id);
 
         // Phát sự kiện khi thêm sản phẩm
-        emit ProductAdded(_id, _name, _price, blockhash(block.number));
+        emit ProductAdded(_id, blockhash(block.number));
     }
 
     // Cập nhật thông tin sản phẩm
@@ -82,8 +77,8 @@ contract ProductRegistry {
         string memory _category, // Thêm category vào tham số
         string memory _size, // Thêm size vào tham số
         string memory _status,
-        string memory _store,
-        string[] memory _cids
+        string[] memory _imagecids,
+        string[] memory _filecids
     ) public {
         require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại hay không
 
@@ -98,13 +93,13 @@ contract ProductRegistry {
             _category, // Cập nhật category
             _size, // Cập nhật size
             _status,
-            _store, // Giữ nguyên store không thay đổi
-            _cids,
+            _imagecids,
+            _filecids,
             msg.sender // Lưu địa chỉ ví của người tạo
         );
 
         // Phát sự kiện khi cập nhật sản phẩm
-        emit ProductUpdated(_id, _name, _price);
+        emit ProductUpdated(_id, blockhash(block.number));
     }
 
     // Lấy thông tin sản phẩm theo ID
@@ -122,8 +117,8 @@ contract ProductRegistry {
             string memory category, // Thêm category vào trả về
             string memory size, // Thêm size vào trả về
             string memory status,
-            string memory store, // Thêm store vào trả về
-            string[] memory cids,
+            string[] memory imagecids,
+            string[] memory filecids,
             address creator
         )
     {
@@ -140,19 +135,23 @@ contract ProductRegistry {
             p.category,
             p.size,
             p.status,
-            p.store,
-            p.cids,
+            p.imagecids,
+            p.filecids,
             p.creator
         );
     }
 
-    // Lấy tất cả sản phẩm
-    function getAllProducts() public view returns (Product[] memory) {
-        Product[] memory allProducts = new Product[](productIds.length);
+    // Hàm lấy tất cả sản phẩm
+    function getAllProducts()
+        public
+        view
+        returns (uint256 count, string[] memory ids)
+    {
+        count = productIds.length; // Lấy số lượng sản phẩm
+        ids = new string[](count); // Khởi tạo mảng product_ids
 
-        for (uint256 i = 0; i < productIds.length; i++) {
-            allProducts[i] = products[productIds[i]];
+        for (uint256 i = 0; i < count; i++) {
+            ids[i] = productIds[i]; // Lưu các ID sản phẩm vào mảng
         }
-        return allProducts;
     }
 }
