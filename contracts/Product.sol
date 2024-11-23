@@ -1,157 +1,134 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.0;
 
-contract ProductRegistry {
-    struct Product {
-        string id; // UUID cho sản phẩm
-        string name; // Tên sản phẩm
-        string description; // Mô tả sản phẩm
-        string price; // Giá sản phẩm (đã chuyển từ uint256 sang string)
-        uint256 quantity; // Số lượng sản phẩm
-        string brand; // Thương hiệu sản phẩm
-        string category; // Danh mục sản phẩm
-        string size; // Kích thước sản phẩm
-        string status; // Trạng thái sản phẩm
-        string[] imagecids; // Đường dẫn IPFS
-        string[] filecids;
-        address creator; // Địa chỉ ví của người tạo
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract ProductManager is ERC1155, Ownable {
+    // Mapping lưu trữ metadata CID cho mỗi tokenId
+    mapping(uint256 => string) public productMetadata;
+
+    // Mapping lưu trữ thông tin động về sản phẩm
+    mapping(uint256 => string) public productPrice;
+    mapping(uint256 => uint256) public productQuantity;
+    mapping(uint256 => string) public productStatus;
+    mapping(uint256 => address) public currentOwner;
+
+    // Mảng lưu trữ tất cả các tokenId
+    uint256[] private tokenIds;
+
+    // Mapping để kiểm tra xem tokenId đã tồn tại trong mảng chưa
+    mapping(uint256 => bool) private tokenIdExists;
+
+    // Constructor khởi tạo URI chung cho tất cả các token
+    constructor() ERC1155("ipfs://{id}.json") Ownable(msg.sender) {}
+
+    // Mint token và lưu metadata CID
+    function mintProduct(
+        uint256 tokenId,
+        uint256 amount,
+        string memory metadataCID,
+        string memory price,
+        uint256 quantity,
+        string memory status
+    ) external onlyOwner {
+        // Mint token mới
+        _mint(msg.sender, tokenId, amount, "");
+
+        // Lưu CID metadata của token
+        productMetadata[tokenId] = metadataCID;
+
+        // Lưu thông tin động về giá, số lượng, trạng thái, và chủ sở hữu hiện tại
+        productPrice[tokenId] = price;
+        productQuantity[tokenId] = quantity;
+        productStatus[tokenId] = status;
+        currentOwner[tokenId] = msg.sender;
+
+        // Thêm tokenId vào danh sách nếu chưa tồn tại
+        if (!tokenIdExists[tokenId]) {
+            tokenIds.push(tokenId);
+            tokenIdExists[tokenId] = true;
+        }
     }
 
-    mapping(string => Product) private products; // Mapping lưu trữ sản phẩm theo ID
-    string[] private productIds; // Mảng lưu trữ ID của tất cả các sản phẩm
+    // Hàm trả về tất cả các tokenId đã được mint
+    function getAllTokenIds() external view returns (uint256[] memory) {
+        return tokenIds;
+    }
 
-    event ProductAdded(string indexed id, bytes32 blockHash); // Sự kiện khi thêm sản phẩm
+    // Các hàm khác không thay đổi
+    function updatePrice(
+        uint256 tokenId,
+        string memory newPrice
+    ) external onlyOwner {
+        productPrice[tokenId] = newPrice;
+    }
 
-    event ProductUpdated(string indexed id, bytes32 blockHash); // Sự kiện khi cập nhật sản phẩm
+    function updateQuantity(
+        uint256 tokenId,
+        uint256 newQuantity
+    ) external onlyOwner {
+        productQuantity[tokenId] = newQuantity;
+    }
 
-    // Thêm sản phẩm mới với ID từ backend
-    function addProduct(
-        string memory _id,
-        string memory _name,
-        string memory _description,
-        string memory _price, // Thay đổi kiểu giá thành string
-        uint256 _quantity,
-        string memory _brand, // Thêm brand vào tham số
-        string memory _category, // Thêm category vào tham số
-        string memory _size, // Thêm size vào tham số
-        string memory _status,
-        string[] memory _imagecids,
-        string[] memory _filecids
-    ) public {
+    function updateStatus(
+        uint256 tokenId,
+        string memory newStatus
+    ) external onlyOwner {
+        productStatus[tokenId] = newStatus;
+    }
+
+    function transferOwnership(uint256 tokenId, address newOwner) external {
         require(
-            bytes(products[_id].id).length == 0,
-            "Product ID already exists"
-        ); // Kiểm tra ID đã tồn tại hay chưa
-
-        // Lưu sản phẩm vào mapping
-        products[_id] = Product(
-            _id,
-            _name,
-            _description,
-            _price,
-            _quantity,
-            _brand, // Lưu brand
-            _category, // Lưu category
-            _size, // Lưu size
-            _status,
-            _imagecids,
-            _filecids,
-            msg.sender // Lưu địa chỉ ví của người tạo
+            msg.sender == currentOwner[tokenId],
+            "Only current owner can transfer ownership"
         );
-
-        // Lưu ID vào mảng productIds
-        productIds.push(_id);
-
-        // Phát sự kiện khi thêm sản phẩm
-        emit ProductAdded(_id, blockhash(block.number));
+        currentOwner[tokenId] = newOwner;
     }
 
-    // Cập nhật thông tin sản phẩm
-    function updateProduct(
-        string memory _id, // Sửa đổi kiểu ID thành string
-        string memory _name,
-        string memory _description,
-        string memory _price, // Thay đổi kiểu giá thành string
-        uint256 _quantity,
-        string memory _brand, // Thêm brand vào tham số
-        string memory _category, // Thêm category vào tham số
-        string memory _size, // Thêm size vào tham số
-        string memory _status,
-        string[] memory _imagecids,
-        string[] memory _filecids
-    ) public {
-        require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại hay không
-
-        // Cập nhật sản phẩm
-        products[_id] = Product(
-            _id,
-            _name,
-            _description,
-            _price,
-            _quantity,
-            _brand, // Cập nhật brand
-            _category, // Cập nhật category
-            _size, // Cập nhật size
-            _status,
-            _imagecids,
-            _filecids,
-            msg.sender // Lưu địa chỉ ví của người tạo
-        );
-
-        // Phát sự kiện khi cập nhật sản phẩm
-        emit ProductUpdated(_id, blockhash(block.number));
+    function updateMetadata(
+        uint256 tokenId,
+        string memory newMetadataCID
+    ) external onlyOwner {
+        productMetadata[tokenId] = newMetadataCID;
     }
 
-    // Lấy thông tin sản phẩm theo ID
-    function getProduct(
-        string memory _id // Sửa đổi kiểu ID thành string
+    function getMetadataCID(
+        uint256 tokenId
+    ) external view returns (string memory) {
+        return productMetadata[tokenId];
+    }
+
+    function getProductInfo(
+        uint256 tokenId
     )
-        public
+        external
         view
-        returns (
-            string memory name,
-            string memory description,
-            string memory price, // Cập nhật kiểu giá thành string
-            uint256 quantity,
-            string memory brand, // Thêm brand vào trả về
-            string memory category, // Thêm category vào trả về
-            string memory size, // Thêm size vào trả về
-            string memory status,
-            string[] memory imagecids,
-            string[] memory filecids,
-            address creator
-        )
+        returns (string memory, string memory, uint256, string memory, address)
     {
-        require(bytes(products[_id].id).length != 0, "Product not found"); // Kiểm tra sản phẩm có tồn tại
-
-        // Lấy sản phẩm từ mapping
-        Product storage p = products[_id];
         return (
-            p.name,
-            p.description,
-            p.price,
-            p.quantity,
-            p.brand,
-            p.category,
-            p.size,
-            p.status,
-            p.imagecids,
-            p.filecids,
-            p.creator
+            productMetadata[tokenId],
+            productPrice[tokenId],
+            productQuantity[tokenId],
+            productStatus[tokenId],
+            currentOwner[tokenId]
         );
     }
 
-    // Hàm lấy tất cả sản phẩm
-    function getAllProducts()
-        public
-        view
-        returns (uint256 count, string[] memory ids)
-    {
-        count = productIds.length; // Lấy số lượng sản phẩm
-        ids = new string[](count); // Khởi tạo mảng product_ids
+    function burnProduct(uint256 tokenId, uint256 amount) external {
+        require(
+            msg.sender == currentOwner[tokenId],
+            "Only the current owner can burn this token"
+        );
 
-        for (uint256 i = 0; i < count; i++) {
-            ids[i] = productIds[i]; // Lưu các ID sản phẩm vào mảng
+        _burn(msg.sender, tokenId, amount);
+
+        // Cập nhật số lượng sản phẩm
+        productQuantity[tokenId] -= amount;
+
+        // Cập nhật trạng thái nếu cần
+        if (productQuantity[tokenId] == 0) {
+            productStatus[tokenId] = "not available";
         }
     }
 }
