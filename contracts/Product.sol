@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 contract ProductManager is ERC1155, Ownable {
+    using Address for address payable;
     // Mapping lưu trữ metadata CID cho mỗi tokenId
     mapping(uint256 => string) public productMetadata;
 
@@ -65,6 +67,8 @@ contract ProductManager is ERC1155, Ownable {
             tokenIds.push(tokenId);
             tokenIdExists[tokenId] = true;
         }
+        // Thêm địa chỉ chủ sở hữu vào danh sách tokenOwners
+        tokenOwners[tokenId].push(msg.sender); // Thêm chủ sở hữu hiện tại vào danh sách
 
         // Emit sự kiện mint
         emit TokenStateChanged(
@@ -255,7 +259,63 @@ contract ProductManager is ERC1155, Ownable {
         return productMetadata[tokenId];
     }
 
-    // Hỗ trợ parse giá
+    // *** Mua token và chuyển ETH cho người bán ***
+    function buyTokens(
+        uint256[] memory tokenIdsToBuy,
+        uint256[] memory amountsToBuy,
+        uint256 totalPrice
+    ) external payable {
+        require(
+            tokenIdsToBuy.length == amountsToBuy.length,
+            "TokenIds and amounts must match"
+        );
+
+        // Kiểm tra số tiền ETH người mua gửi vào có đúng với tổng giá trị (totalPrice) không
+        require(msg.value == totalPrice, "Incorrect ETH amount sent");
+
+        // Người mua chuyển tổng giá trị ETH cho người bán
+        payable(currentOwner[tokenIdsToBuy[0]]).sendValue(totalPrice);
+
+        // Chuyển các token từ người bán sang người mua
+        for (uint256 i = 0; i < tokenIdsToBuy.length; i++) {
+            uint256 tokenId = tokenIdsToBuy[i];
+            uint256 amount = amountsToBuy[i];
+
+            // Kiểm tra xem số lượng token có đủ để bán không
+            require(
+                productQuantity[tokenId] >= amount,
+                "Not enough tokens available for sale"
+            );
+
+            // Cập nhật lại số lượng token sau khi bán
+            productQuantity[tokenId] -= amount;
+
+            // Chuyển token từ người bán sang người mua
+            _safeTransferFrom(
+                currentOwner[tokenId],
+                msg.sender,
+                tokenId,
+                amount,
+                ""
+            );
+
+            // Thêm địa chỉ người mua vào danh sách chủ sở hữu của tokenId
+            for (uint256 j = 0; j < amount; j++) {
+                tokenOwners[tokenId].push(msg.sender); // Thêm người mua vào danh sách chủ sở hữu
+            }
+        }
+
+        // Emit sự kiện thay đổi trạng thái token
+        emit TokenStateChanged(
+            tokenIdsToBuy[0],
+            "SALE",
+            msg.sender,
+            block.timestamp,
+            "Tokens sold and ETH paid"
+        );
+    }
+
+    // Hàm hỗ trợ chuyển giá trị từ string sang uint256
     function parsePrice(string memory price) internal pure returns (uint256) {
         bytes memory b = bytes(price);
         uint256 result = 0;
