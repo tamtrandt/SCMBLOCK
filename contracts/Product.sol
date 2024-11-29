@@ -160,6 +160,74 @@ contract ProductManager is ERC1155, Ownable {
         );
     }
 
+    // *** Mua token và chuyển ETH cho người bán ***
+    function buyTokens(
+        uint256[] memory tokenIdsToBuy,
+        uint256[] memory amountsToBuy,
+        uint256 totalPrice
+    ) external payable {
+        require(
+            tokenIdsToBuy.length == amountsToBuy.length,
+            "TokenIds and amounts must match"
+        );
+
+        // Kiểm tra số tiền ETH người mua gửi vào có đúng với tổng giá trị (totalPrice) không
+        require(msg.value == totalPrice, "Incorrect ETH amount sent");
+
+        // Người mua chuyển tổng giá trị ETH cho người bán
+        payable(currentOwner[tokenIdsToBuy[0]]).sendValue(totalPrice);
+
+        // Chuyển các token từ người bán sang người mua
+        for (uint256 i = 0; i < tokenIdsToBuy.length; i++) {
+            uint256 tokenId = tokenIdsToBuy[i];
+            uint256 amount = amountsToBuy[i];
+
+            // Kiểm tra xem số lượng token có đủ để bán không
+            require(
+                productQuantity[tokenId] >= amount,
+                "Not enough tokens available for sale"
+            );
+
+            // Cập nhật lại số lượng token sau khi bán
+            productQuantity[tokenId] -= amount;
+
+            // Chuyển token từ người bán sang người mua
+            _safeTransferFrom(
+                currentOwner[tokenId],
+                msg.sender,
+                tokenId,
+                amount,
+                ""
+            );
+
+            // Thêm địa chỉ người mua vào danh sách chủ sở hữu của tokenId
+            for (uint256 j = 0; j < amount; j++) {
+                tokenOwners[tokenId].push(msg.sender); // Thêm người mua vào danh sách chủ sở hữu
+            }
+        }
+
+        // Emit sự kiện thay đổi trạng thái token
+        emit TokenStateChanged(
+            tokenIdsToBuy[0],
+            "SALE",
+            msg.sender,
+            block.timestamp,
+            "Tokens sold and ETH paid"
+        );
+    }
+
+    // Hàm hỗ trợ chuyển giá trị từ string sang uint256
+    function parsePrice(string memory price) internal pure returns (uint256) {
+        bytes memory b = bytes(price);
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            if (b[i] >= 0x30 && b[i] <= 0x39) {
+                result = result * 10 + (uint256(uint8(b[i])) - 48);
+            }
+        }
+        return result;
+    }
+
     // *** Xóa (D): Burn token ***
     function burnProduct(uint256 tokenId, uint256 amount) external {
         require(
@@ -257,73 +325,5 @@ contract ProductManager is ERC1155, Ownable {
         uint256 tokenId
     ) external view returns (string memory) {
         return productMetadata[tokenId];
-    }
-
-    // *** Mua token và chuyển ETH cho người bán ***
-    function buyTokens(
-        uint256[] memory tokenIdsToBuy,
-        uint256[] memory amountsToBuy,
-        uint256 totalPrice
-    ) external payable {
-        require(
-            tokenIdsToBuy.length == amountsToBuy.length,
-            "TokenIds and amounts must match"
-        );
-
-        // Kiểm tra số tiền ETH người mua gửi vào có đúng với tổng giá trị (totalPrice) không
-        require(msg.value == totalPrice, "Incorrect ETH amount sent");
-
-        // Người mua chuyển tổng giá trị ETH cho người bán
-        payable(currentOwner[tokenIdsToBuy[0]]).sendValue(totalPrice);
-
-        // Chuyển các token từ người bán sang người mua
-        for (uint256 i = 0; i < tokenIdsToBuy.length; i++) {
-            uint256 tokenId = tokenIdsToBuy[i];
-            uint256 amount = amountsToBuy[i];
-
-            // Kiểm tra xem số lượng token có đủ để bán không
-            require(
-                productQuantity[tokenId] >= amount,
-                "Not enough tokens available for sale"
-            );
-
-            // Cập nhật lại số lượng token sau khi bán
-            productQuantity[tokenId] -= amount;
-
-            // Chuyển token từ người bán sang người mua
-            _safeTransferFrom(
-                currentOwner[tokenId],
-                msg.sender,
-                tokenId,
-                amount,
-                ""
-            );
-
-            // Thêm địa chỉ người mua vào danh sách chủ sở hữu của tokenId
-            for (uint256 j = 0; j < amount; j++) {
-                tokenOwners[tokenId].push(msg.sender); // Thêm người mua vào danh sách chủ sở hữu
-            }
-        }
-
-        // Emit sự kiện thay đổi trạng thái token
-        emit TokenStateChanged(
-            tokenIdsToBuy[0],
-            "SALE",
-            msg.sender,
-            block.timestamp,
-            "Tokens sold and ETH paid"
-        );
-    }
-
-    // Hàm hỗ trợ chuyển giá trị từ string sang uint256
-    function parsePrice(string memory price) internal pure returns (uint256) {
-        bytes memory b = bytes(price);
-        uint256 result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] >= 0x30 && b[i] <= 0x39) {
-                result = result * 10 + (uint256(uint8(b[i])) - 48);
-            }
-        }
-        return result;
     }
 }
