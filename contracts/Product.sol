@@ -33,8 +33,7 @@ contract ProductManager is ERC1155, Ownable {
         uint256 indexed tokenId,
         string action,
         address indexed creator,
-        uint256 timestamp,
-        string additionalInfo
+        uint256 timestamp
     );
 
     // Transaction CID mapping
@@ -63,13 +62,7 @@ contract ProductManager is ERC1155, Ownable {
         }
         tokenOwners[tokenId].push(msg.sender);
 
-        emit TokenStateChanged(
-            tokenId,
-            "MINT",
-            msg.sender,
-            block.timestamp,
-            metadataCID
-        );
+        emit TokenStateChanged(tokenId, "MINT", msg.sender, block.timestamp);
     }
 
     function updatePrice(
@@ -81,8 +74,7 @@ contract ProductManager is ERC1155, Ownable {
             tokenId,
             "UPDATE_PRICE",
             msg.sender,
-            block.timestamp,
-            newPrice
+            block.timestamp
         );
     }
 
@@ -105,8 +97,7 @@ contract ProductManager is ERC1155, Ownable {
             tokenId,
             "UPDATE_QUANTITY",
             msg.sender,
-            block.timestamp,
-            "Quantity updated"
+            block.timestamp
         );
     }
 
@@ -119,8 +110,7 @@ contract ProductManager is ERC1155, Ownable {
             tokenId,
             "UPDATE_STATUS",
             msg.sender,
-            block.timestamp,
-            newStatus
+            block.timestamp
         );
     }
 
@@ -133,8 +123,7 @@ contract ProductManager is ERC1155, Ownable {
             tokenId,
             "UPDATE_METADATA",
             msg.sender,
-            block.timestamp,
-            newMetadataCID
+            block.timestamp
         );
     }
 
@@ -172,8 +161,7 @@ contract ProductManager is ERC1155, Ownable {
             tokenIdsToBuy[0],
             "SALE",
             msg.sender,
-            block.timestamp,
-            "Tokens sold"
+            block.timestamp
         );
     }
 
@@ -190,13 +178,7 @@ contract ProductManager is ERC1155, Ownable {
             removeTokenIdFromList(tokenId);
         }
 
-        emit TokenStateChanged(
-            tokenId,
-            "BURN",
-            msg.sender,
-            block.timestamp,
-            "Token burned"
-        );
+        emit TokenStateChanged(tokenId, "BURN", msg.sender, block.timestamp);
     }
 
     function removeTokenIdFromList(uint256 tokenId) internal {
